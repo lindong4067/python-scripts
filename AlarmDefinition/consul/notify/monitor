@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# FIXME:
+#######################################################################
+### BEGIN INIT INFO
+# Provides:            monitor
+# Required-Start:      xinetd
+# Required-Stop:
+# Should-Start:
+# Should-Stop:         
+# Default-Start:       3 5
+# Default-Stop:        0 1 2 4 6
+# Short-Description:   Start monitor process.
+### END INIT INFO
+#######################################################################
+
+
+_signal=$1
+
+case $_signal in
+  start)
+        eval "/opt-mpc/MPC/bin/monitor.sh &" 
+        ;;
+  stop)
+        echo "NO stop support"  
+        ;;
+  *)
+ echo "usage: $0 { start | stop }"
+     ;;
+esac
+
+

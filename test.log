@@ -1,0 +1,5 @@
+2018-03-21 16:24:54,970 INFO    : this is information
+2018-03-21 16:24:54,970 WARNING : this is warning message
+2018-03-21 16:24:54,970 ERROR   : this is error message
+2018-03-21 16:24:54,970 CRITICAL: this is fatal message, it is same as logger.critical
+2018-03-21 16:24:54,970 CRITICAL: this is critical message
