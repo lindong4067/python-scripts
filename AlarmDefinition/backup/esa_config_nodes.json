@@ -1,0 +1,8 @@
+{
+  "watches": [
+  {
+      "type": "nodes",
+      "args": ["python", "/opt/consul/script/esaconfig/esa_cluster_handler.py"]
+  }
+  ]
+}

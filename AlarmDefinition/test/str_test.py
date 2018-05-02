@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import json
 str2 = ''
 str2 += 'ABC'
 
@@ -32,3 +33,14 @@ size = '   234 = game   '.strip().split('=')
 
 ip_port = ('local', 8500)
 print 'http://%s:%s/v1/kv/%s' % (ip_port[0],ip_port[1], 'consul_key')
+
+if ('smpc' == 'hw') or ('smpc' == 'smpc'):
+    print True
+else:
+    print False
+
+print '********'
+if None:
+    print 'None'
+js = json.loads('{"2":"3","3":"4"}')
+print js

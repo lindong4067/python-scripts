@@ -1,0 +1,11 @@
+{  
+  "checks":[ 
+  {  
+    "id": "[CONSUL]:esa/check",  
+    "name": "esa-check", 
+    "args": ["python", "/opt/consul/script/esaconfig/esa_state_handler.py"],  
+    "interval": "60s",  
+    "timeout": "30s"  
+  }
+  ]
+}

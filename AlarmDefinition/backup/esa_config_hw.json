@@ -1,0 +1,9 @@
+{
+  "watches": [
+  {
+      "type": "key",
+      "key": "cm/values/[VERSION]-[NODE]-[CLUSTER]/datastorages/esaconfig/hw",
+      "args": ["python", "/opt/consul/script/esaconfig/update_alarm_handler.py"]
+  }
+  ]
+}
