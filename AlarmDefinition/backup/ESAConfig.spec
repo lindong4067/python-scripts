@@ -64,6 +64,9 @@ cp -fr @MACS_MIRROR@/alarms.log ${RPM_BUILD_ROOT}/var/ESA/AlarmService/log/alarm
 %config %attr(600,root,root) %{prefix}/ESAConfig/conf/log4jFmAgent.xml
 %config %attr(600,root,root) %{prefix}/ESAConfig/conf/log4jMasterAgent.xml
 %config %attr(600,root,root) %{prefix}/ESAConfig/conf/log4jPmAgent.xml
+%config %attr(755,root,root) %{prefix}/ESAConfig/conf/esa_ma.service
+%config %attr(755,root,root) %{prefix}/ESAConfig/conf/esa_fma.service
+%config %attr(755,root,root) %{prefix}/ESAConfig/conf/esa_pma.service
 %config %attr(755,root,mpc) %{prefix}/ESAConfig/HW/config/hw_monitors.cfg
 %config %attr(755,root,mpc) %{prefix}/ESAConfig/HW/TrapTranslations/hw_alarmtrans.xml
 %config %attr(755,root,mpc) %{prefix}/ESAConfig/HW/AlarmDefinitions/hw_alarmdef.xml
@@ -81,6 +84,10 @@ cp -fr @MACS_MIRROR@/alarms.log ${RPM_BUILD_ROOT}/var/ESA/AlarmService/log/alarm
 %config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_config_nodes.json
 %config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_config_smpc.json
 %config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_config_hw.json
+%config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_definitions_hw.json
+%config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_definitions_aecid.json
+%config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_definitions_smpc.json
+%config %attr(755,root,root) %{prefix}/ESAConfig/consul/esa_definitions_gmpc.json
 %config(noreplace) %attr(755,root,mpc) /var/ESA/AlarmService/log/alarms.log
 %{TARGET_DIR}
 %exclude %{prefix}/ESAConfig/PM
@@ -111,6 +118,13 @@ $ESABINPATH/esama stop
 $ESABINPATH/esafma stop
 $ESABINPATH/esapma stop
 
+cp /opt-mpc/ESAConfig/conf/esa_ma.service /usr/lib/systemd/system/esa_ma.service
+cp /opt-mpc/ESAConfig/conf/esa_fma.service /usr/lib/systemd/system/esa_fma.service
+cp /opt-mpc/ESAConfig/conf/esa_pma.service /usr/lib/systemd/system/esa_pma.service
+systemctl enable /usr/lib/systemd/system/esa_ma.service
+systemctl enable /usr/lib/systemd/system/esa_fma.service
+systemctl enable /usr/lib/systemd/system/esa_pma.service
+
 link_cfg_triggerin $ESAHOME/ESA/conf/mainCfg.xml /opt-mpc/ESAConfig/conf/mainCfg.xml
 link_cfg_triggerin $ESAHOME/ESA/conf/log4jFmAgent.xml /opt-mpc/ESAConfig/conf/log4jFmAgent.xml
 link_cfg_triggerin $ESAHOME/ESA/conf/log4jMasterAgent.xml /opt-mpc/ESAConfig/conf/log4jMasterAgent.xml
@@ -133,7 +147,7 @@ else
 	V3_ACTIVE="yes"
 fi
 
-INSTALL_OMCENTER=`/bin/grep "^\s*Install_OMCenter=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_OMCENTER=`/bin/grep "^\s*Install_OMCenter=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 
 if [ "X$INSTALL_OMCENTER" = "Xy" ]; then
 	sed -i -e "s/master=\".*\" seedNodes/master=\"yes\" seedNodes/g" \
@@ -184,9 +198,9 @@ elif [ "X${PRODUCT_NAME}" = "Xaecid" ];then
 	ln -s /opt-mpc/ESAConfig/MPS_AlarmDefinition/AECID_alarmdefinition.xml /usr/local/esa/conf/fmAlarmDefinitions/AECID_alarmdefinition.xml
 fi
 
-$ESABINPATH/esama start
-$ESABINPATH/esafma start
-$ESABINPATH/esapma start 
+#$ESABINPATH/esama start
+#$ESABINPATH/esafma start
+#$ESABINPATH/esapma start
 
 %triggerun -- esa 
 . /opt-mpc/Config/bin/comm_functions.sh %{name}-%{version}
@@ -227,7 +241,7 @@ if [ $2 -eq 0 ];then
 	rm -f /usr/local/esa/conf/fmAlarmDefinitions/GMPC_alarmdefinition.xml
 	rm -f /usr/local/esa/conf/fmAlarmDefinitions/SMPC_alarmdefinition.xml
 	rm -f /usr/local/esa/conf/fmAlarmDefinitions/AECID_alarmdefinition.xml
-        rm -f /usr/local/esa/conf/fmAlarmDefinitions/MCN_alarmdefinition.xml
+    rm -f /usr/local/esa/conf/fmAlarmDefinitions/MCN_alarmdefinition.xml
 fi
 
 ################################################################
@@ -284,6 +298,7 @@ triggerpostun_cfg $ESAHOME/SSM/config/agent.state $*
 # consul
 ################################################################
 %triggerin -- consulconfig
+source /opt/consul/script/env/consul.export
 . /opt-mpc/Config/bin/comm_functions.sh %{name}-%{version}
 CONSULHOME="/opt/consul/script"
 CONSULSCRIPTHOME="/opt/consul/script/esaconfig"
@@ -298,56 +313,114 @@ link_cfg_triggerin $CONSULSCRIPTHOME/esa_cluster_handler.py /opt-mpc/ESAConfig/s
 link_cfg_triggerin $CONSULSCRIPTHOME/esa_state_handler.py /opt-mpc/ESAConfig/scripts/esa_state_handler.py
 link_cfg_triggerin $CONSULSCRIPTHOME/update_alarm_handler.py /opt-mpc/ESAConfig/scripts/update_alarm_handler.py
 
-CONSULIP=`/bin/grep "^\s*LOCAL_CONSUL_IP=" /var/opt/setup/site.export | awk -F'=' '{print $2}'`
-CLUSTERNAME=`/bin/grep "^\s*CLUSTER_NAME=" /var/opt/setup/site.export | awk -F'=' '{print $2}'`
-MPSVERSION=`/bin/grep "^\s*VERSION=" /var/opt/setup/site.export | awk -F'=' '{print $2}'`
-NODENAME=`/bin/grep "^\s*NODE_NAME=" /var/opt/setup/site.export | awk -F'=' '{print $2}'`
-
-INSTALL_HW=`/bin/grep "^\s*Install_HW=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+CONSULIP=`/bin/grep "^\s*LOCAL_CONSUL_IP=" /var/opt/setup/site.export | awk -F'=' '{print $2; exit;}'`
+CLUSTERNAME=`/bin/grep "^\s*CLUSTER_NAME=" /var/opt/setup/site.export | awk -F'=' '{print $2; exit;}'`
+MPSVERSION=`/bin/grep "^\s*VERSION=" /var/opt/setup/site.export | awk -F'=' '{print $2; exit;}'`
+NODENAME=`/bin/grep "^\s*NODE_NAME=" /var/opt/setup/site.export | awk -F'=' '{print $2; exit;}'`
 
 sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
 	-e "s/\[NODE\]/${NODENAME}/g" \
 	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
 	/opt-mpc/ESAConfig/consul/esa_config_hw.json
-	
+
 link_cfg_triggerin $CONSULCONFIG/esa_config_hw.json /opt-mpc/ESAConfig/consul/esa_config_hw.json
 
-INSTALL_GMPC=`/bin/grep "^\s*Install_GMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+	-e "s/\[NODE\]/${NODENAME}/g" \
+	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
+	/opt-mpc/ESAConfig/consul/esa_definitions_hw.json
+
+consul kv import @/opt-mpc/ESAConfig/consul/esa_definitions_hw.json
+
+INSTALL_GMPC=`/bin/grep "^\s*Install_GMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_GMPC" = "Xy" ]; then
 	sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+		-e "s/\[NODE\]/${NODENAME}/g" \
       	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
       	/opt-mpc/ESAConfig/consul/esa_config_gmpc.json
-      	
-   link_cfg_triggerin $CONSULCONFIG/esa_config_gmpc.json /opt-mpc/ESAConfig/consul/esa_config_gmpc.json
+
+   	link_cfg_triggerin $CONSULCONFIG/esa_config_gmpc.json /opt-mpc/ESAConfig/consul/esa_config_gmpc.json
+
+	sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+		-e "s/\[NODE\]/${NODENAME}/g" \
+      	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
+      	/opt-mpc/ESAConfig/consul/esa_definitions_gmpc.json
+
+	consul kv import @/opt-mpc/ESAConfig/consul/esa_definitions_gmpc.json
 fi
 
-INSTALL_SMPC=`/bin/grep "^\s*Install_SMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_SMPC=`/bin/grep "^\s*Install_SMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_SMPC" = "Xy" ]; then
 	sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+		-e "s/\[NODE\]/${NODENAME}/g" \
       	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
       	/opt-mpc/ESAConfig/consul/esa_config_smpc.json
-      	
+
     link_cfg_triggerin $CONSULCONFIG/esa_config_smpc.json /opt-mpc/ESAConfig/consul/esa_config_smpc.json
+
+	sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+		-e "s/\[NODE\]/${NODENAME}/g" \
+      	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
+      	/opt-mpc/ESAConfig/consul/esa_definitions_smpc.json
+
+	consul kv import @/opt-mpc/ESAConfig/consul/esa_definitions_smpc.json
 fi
 
-INSTALL_AECID=`/bin/grep "^\s*Install_AECID=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_AECID=`/bin/grep "^\s*Install_AECID=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_AECID" = "Xy" ]; then
 	sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+		-e "s/\[NODE\]/${NODENAME}/g" \
       	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
       	/opt-mpc/ESAConfig/consul/esa_config_aecid.json
-      	
+
     link_cfg_triggerin $CONSULCONFIG/esa_config_aecid.json /opt-mpc/ESAConfig/consul/esa_config_aecid.json
+
+	sed -i -e "s/\[VERSION\]/${MPSVERSION}/g" \
+		-e "s/\[NODE\]/${NODENAME}/g" \
+      	-e "s/\[CLUSTER\]/${CLUSTERNAME}/g" \
+      	/opt-mpc/ESAConfig/consul/esa_definitions_aecid.json
+
+	consul kv import @/opt-mpc/ESAConfig/consul/esa_definitions_aecid.json
 fi
 
 link_cfg_triggerin $CONSULCONFIG/esa_config_nodes.json /opt-mpc/ESAConfig/consul/esa_config_nodes.json
 
-sed -i -e "s/\[CONSUL\]/${CONSULIP}/g" \
+INSTALL_OMCENTER=`/bin/grep "^\s*Install_OMCenter=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
+
+if [ "X$INSTALL_OMCENTER" = "Xy" ]; then
+	sed -i -e "s/\[CONSUL\]/${CONSULIP}/g" \
   	/opt-mpc/ESAConfig/consul/esa_config_check.json
 
-link_cfg_triggerin $CONSULCONFIG/esa_config_check.json /opt-mpc/ESAConfig/consul/esa_config_check.json
+	link_cfg_triggerin $CONSULCONFIG/esa_config_check.json /opt-mpc/ESAConfig/consul/esa_config_check.json
+fi
+
 consul reload
+sleep 10
+service esa_ma start
+echo 'Start esa_ma'
+service esa_fma start
+echo 'Start esa_fma'
+service esa_pma start
+echo 'Start esa_pma'
 
 %triggerun -- consulconfig
+service esa_ma stop
+echo 'Stop esa_ma'
+service esa_fma stop
+echo 'Stop esa_fma'
+service esa_pma stop
+echo 'Stop esa_pma'
+systemctl disable esa_ma.service
+systemctl disable esa_fma.service
+systemctl disable esa_pma.service
+systemctl stop esa_ma.service
+systemctl stop esa_fma.service
+systemctl stop esa_pma.service
+rm -rf /usr/lib/systemd/system/esa_ma.service
+rm -rf /usr/lib/systemd/system/esa_fma.service
+rm -rf /usr/lib/systemd/system/esa_pma.service
+
+source /opt/consul/script/env/consul.export
 . /opt-mpc/Config/bin/comm_functions.sh %{name}-%{version}
 CONSULHOME="/opt/consul/script"
 CONSULSCRIPTHOME="/opt/consul/script/esaconfig"
@@ -361,22 +434,31 @@ triggerpostun_cfg $CONSULSCRIPTHOME/update_alarm_handler.py $*
 triggerpostun_cfg $CONSULCONFIG/esa_config_check.json $*
 triggerpostun_cfg $CONSULCONFIG/esa_config_nodes.json $*
 triggerpostun_cfg $CONSULCONFIG/esa_config_hw.json $*
-INSTALL_GMPC=`/bin/grep "^\s*Install_GMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_GMPC=`/bin/grep "^\s*Install_GMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_GMPC" = "Xy" ]; then
 	triggerpostun_cfg $CONSULCONFIG/esa_config_gmpc.json $*
 fi
 
-INSTALL_SMPC=`/bin/grep "^\s*Install_SMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_SMPC=`/bin/grep "^\s*Install_SMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_SMPC" = "Xy" ]; then
 	triggerpostun_cfg $CONSULCONFIG/esa_config_smpc.json $*
 fi
 
-INSTALL_AECID=`/bin/grep "^\s*Install_AECID=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_AECID=`/bin/grep "^\s*Install_AECID=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_AECID" = "Xy" ]; then
 	triggerpostun_cfg $CONSULCONFIG/esa_config_aecid.json $*
 fi
 
 rm -rf $CONSULSCRIPTHOME
+rm -rf $CONSULCONFIG/esa_config_check.json
+rm -rf $CONSULCONFIG/esa_config_nodes.json
+rm -rf $CONSULCONFIG/esa_config_check.json
+rm -rf $CONSULCONFIG/esa_config_hw.json
+rm -rf $CONSULCONFIG/esa_config_gmpc.json
+rm -rf $CONSULCONFIG/esa_config_smpc.json
+rm -rf $CONSULCONFIG/esa_config_aecid.json
+
+consul reload
 
 %triggerpostun -- consulconfig
 . /opt-mpc/Config/bin/comm_functions.sh %{name}-%{version}
@@ -391,18 +473,17 @@ triggerpostun_cfg $CONSULSCRIPTHOME/update_alarm_handler.py $*
 triggerpostun_cfg $CONSULCONFIG/esa_config_check.json $*
 triggerpostun_cfg $CONSULCONFIG/esa_config_nodes.json $*
 triggerpostun_cfg $CONSULCONFIG/esa_config_hw.json $*
-
-INSTALL_GMPC=`/bin/grep "^\s*Install_GMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_GMPC=`/bin/grep "^\s*Install_GMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_GMPC" = "Xy" ]; then
 	triggerpostun_cfg $CONSULCONFIG/esa_config_gmpc.json $*
 fi
 
-INSTALL_SMPC=`/bin/grep "^\s*Install_SMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_SMPC=`/bin/grep "^\s*Install_SMPC=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_SMPC" = "Xy" ]; then
 	triggerpostun_cfg $CONSULCONFIG/esa_config_smpc.json $*
 fi
 
-INSTALL_AECID=`/bin/grep "^\s*Install_AECID=" /var/opt/setup/install_parameters | awk -F'=' '{print $2}'`
+INSTALL_AECID=`/bin/grep "^\s*Install_AECID=" /var/opt/setup/install_parameters | awk -F'=' '{print $2; exit;}'`
 if [ "X$INSTALL_AECID" = "Xy" ]; then
 	triggerpostun_cfg $CONSULCONFIG/esa_config_aecid.json $*
 fi
@@ -412,7 +493,13 @@ sed -i -e "s/master=\".*\" seedNodes/master=\"no\" seedNodes/g" \
         /opt-mpc/ESAConfig/conf/mainCfg.xml
         
 rm -rf $CONSULSCRIPTHOME
-
+rm -rf $CONSULCONFIG/esa_config_check.json
+rm -rf $CONSULCONFIG/esa_config_nodes.json
+rm -rf $CONSULCONFIG/esa_config_check.json
+rm -rf $CONSULCONFIG/esa_config_hw.json
+rm -rf $CONSULCONFIG/esa_config_gmpc.json
+rm -rf $CONSULCONFIG/esa_config_smpc.json
+rm -rf $CONSULCONFIG/esa_config_aecid.json
 
 ################################################################
 
@@ -424,6 +511,7 @@ rm -rf $CONSULSCRIPTHOME
 %postun
 . /opt-mpc/Config/bin/comm_functions.sh %{name}-%{version}
 ESAHOME="/opt/ESA"
+ESACONFIG="/opt/consul/config"
 postun_cfg $ESAHOME/ESA/conf/mainCfg.xml
 postun_cfg $ESAHOME/ESA/conf/log4jFmAgent.xml
 postun_cfg $ESAHOME/ESA/conf/log4jMasterAgent.xml
@@ -437,9 +525,15 @@ postun_cfg $CONSULSCRIPTHOME/esa_cluster_handler.py
 postun_cfg $CONSULSCRIPTHOME/esa_state_handler.py
 postun_cfg $CONSULSCRIPTHOME/update_alarm_handler.py
 postun_cfg $ESAHOME/SSM/config/agent.cfg 
-postun_cfg $ESAHOME/SSM/config/agent.state 
+postun_cfg $ESAHOME/SSM/config/agent.state
+postun_cfg $ESACONFIG/esa_config_check.json
+postun_cfg $ESACONFIG/esa_config_nodes.json
+postun_cfg $ESACONFIG/esa_config_hw.json
+postun_cfg $ESACONFIG/esa_config_smpc.json
+postun_cfg $ESACONFIG/esa_config_gmpc.json
+postun_cfg $ESACONFIG/esa_config_aecid.json
 
-consul reload
+
 #0 = uninstall, 1 = upgrade
 if [ $1 -eq 0 ];then
 	rm -f /usr/local/esa/conf/fmAlarmDefinitions/GMPC_alarmdefinition.xml

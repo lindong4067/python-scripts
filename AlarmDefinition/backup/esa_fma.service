@@ -1,0 +1,12 @@
+[Unit]
+Description=esafma server daemon
+
+[Service]
+Type=forking
+Restart=on-failure
+TimeoutSec=5min
+ExecStart=/opt/ESA/ESA/bin/esafma start
+ExecStop=/opt/ESA/ESA/bin/esafma stop
+
+[Install]
+WantedBy=multi-user.target graphic.target

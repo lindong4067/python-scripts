@@ -95,7 +95,7 @@ def main():
         log.logger.info('Get consul value from data : %s' % value)
         file_path = get_file_path(key)
         log.logger.info('Get file path by key : %s' % file_path)
-        if file_path is not None:
+        if file_path is not None and value is not None:
             save_to_file(file_path, value)
             log.logger.info('Save to file : %s' % file_path)
     log.logger.info('Finish script : %s' % 'update_alarm_handler.py')

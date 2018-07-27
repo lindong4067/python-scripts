@@ -1,0 +1,12 @@
+[Unit]
+Description=esama server daemon
+
+[Service]
+Type=forking
+Restart=on-failure
+TimeoutSec=5min
+ExecStart=/opt/ESA/ESA/bin/esama start
+ExecStop=/opt/ESA/ESA/bin/esama stop
+
+[Install]
+WantedBy=multi-user.target graphic.target
